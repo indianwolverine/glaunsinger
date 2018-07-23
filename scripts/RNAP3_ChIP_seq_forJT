@@ -1,0 +1,157 @@
+### Transfer files to savio from box
+# note for Ella: Give Jessica access to Box folder w/ fastq for direct box access
+# Make external box pw : http://research-it.berkeley.edu/services/high-performance-computing/transferring-data-between-savio-and-your-uc-berkeley-box-account
+# log into the data transfer node from terminal
+ssh username@dtn.brc.berkeley.edu
+#open ftp to box
+lftp ftp.box.com
+user username@berkeley.edu
+#set server directory for copy location of files
+lcd /clusterfs/rosalind/users/jtucker1
+#open folder in box
+cd Chip-Seq\ -\ John\ Karijolich/
+# for a single file use "get" for all files use "mget with *"
+get Sample_BGJK001B.fastq
+mget Sample_BGJK*
+## check quality of fastq files
+# start a local bash
+srun --pty -u --partition=savio --account=co_rosalind --time=01:00:00  bash -i
+# load appropriate fastqc module (note you can always fill in up to "fastqc/" and then hit tab to see the most recent version)
+module load fastqc/0.11.5
+# also note that if you are unsure of the command to run fastqc, you can type "fastqc -h" after loading the module and see the basic usage
+fastqc filename
+#download html file to your desktop for easier viewing
+scp username@dtn.brc.berkeley.edu:/file/name/location/*.html /Desktop/location/to/copy
+#run a script to trim fastq reads for pool quality. here I'm using sickle
+sickle se -f input.file -t sanger -o output.file.name
+# se = single end reads
+# turns out that after 2012 Illumina used sanger reads
+
+## get correct genome files onto the server
+#Download all the "Mus_musculus.GRCm38.dna.chromosome.*" files from ftp://ftp.ensembl.org/pub/release-90/fasta/mus_musculus/dna/
+#trasfer them to the server, from a local bash
+scp /location/to/files/Mus_musculus.GRCm38.dna.chromosome.* username@dtn.brc.berkeley.edu:/location/to/copy
+#run a job from terminal on the server
+srun --pty -u --partition=savio2 --account=co_rosalind --time=00:60:00  bash -i
+gunzip Mus_musculus.GRCm38.dna.chromosome.*
+
+#build an index from chromsome .fa files using bowtie build. Here's my batch script:
+
+---------------------------------
+
+#!/bin/sh -I
+
+############################# BATCH SCRIPT ####################################
+###
+###     FILENAME:bowtie_build.sh
+###
+###     PURPOSE:To make a custom index combining multiple .fa files
+###
+###
+###     USAGE: sbatch bowtie_build.sh path/to/.fa/file basename_of_output
+###
+###     AUTHOR: Ella Hartenian
+###     DATE: March 21, 2016
+###     MODIFIED: June 6, 2017
+###
+###############################################################################
+
+#SBATCH --job-name=bowtie_build
+#SBATCH --partition=savio2
+#SBATCH --account=co_rosalind
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=3
+#SBATCH --mem=9000
+#SBATCH --time=40:00:00
+#SBATCH --output=bowtiebuild_%j.out
+#SBATCH --error=bowtiebuild_%j.err
+#SBATCH --mail-user=ehartenian@berkeley.edu
+#SBATCH --mail-type=END
+cd $SLURM_SUBMIT_DIR
+
+## LOAD MODULES
+module load bowtie/2.2.3
+
+## RUN!!
+bowtie2-build -f $1 $2
+# -f reference fasta in, if one file per chromosome, make a list w commas between and no spaces
+
+---------------------------
+
+# Use the base name of the index you've created to run your batch script for aligning trimmed fastq files to the unmasked genome
+# ie my indexes are "GRCm38_unmask.1.bt2" so base name is "GRCm38_unmask"
+# here's my batch script. This needs to be run 1x per fastq file
+
+---------------------------
+
+#!/bin/sh -I
+
+############################# BATCH SCRIPT ####################################
+###
+###     FILENAME:bowtie2.sh
+###
+###     PURPOSE:To align RNAPIII ChIP seq reads to the mouse genome ( no need for splicing so no need for tophat)
+###
+###     USAGE: sbatch bowtie2.sh identifier_name path/to.fastq
+###
+###     AUTHOR: Ella Hartenian
+###     DATE: Sept 7, 2017
+###     MODIFIED:
+###
+###############################################################################
+
+#SBATCH --job-name=bowtie2
+#SBATCH --partition=savio2
+#SBATCH --account=co_rosalind
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=3
+#SBATCH --mem=6000
+#SBATCH --time=48:00:00
+#SBATCH --output=bowtie2_%j.out
+#SBATCH --error=bowtie2_%j.err
+#SBATCH --mail-user=ehartenian@berkeley.edu
+#SBATCH --mail-type=END
+cd $SLURM_SUBMIT_DIR
+
+## SET VARIABLES
+name=$1_bowtie2
+
+## LOAD MODULES
+module load bowtie/2.2.9
+module load samtools/0.1.19
+
+## RUN!!
+bowtie2 -x /clusterfs/rosalind/users/ehartenian/genome_files/Ensembl/GRCm38_unmasked/Chromosomes/GRCm38_unmask -U $2 -S $name
+
+---------------------------
+
+# Then need to convert this sam file that's output from bowtie2 into a bam file, sort it, and make an index
+
+
+
+# Download the sorted bam file (will be BIG!) and the index file to your local machine
+# Download IGV and IGV tools, both can be found on this website: https://software.broadinstitute.org/software/igv/download
+# directions on using IGV tools can be found here: https://software.broadinstitute.org/software/igv/igvtools
+# run the count command to create a tdf file, which will make nice looking histograms for display in IGV
+
+~/path/to/IGVTools/igvtools count /path/to/sorted/bam/JK_1B_sort.bam name.newfile genome(ie "mm10")
+#example command:
+#~/Desktop/coding/IGVTools/igvtools count /Users/ehartenian/Desktop/coding/JK_RNAPIII/JK_1B_sort.bam JK_1B.tdf mm10
+# note that after running this I generally delete the sorted bam files and clear my trash b/c they are too big to keep hanging around
+
+
+##################
+4SU-seq analysis
+
+# first round of using unmasked genome gave a total of ~6000 counts per file (3A + 3C) I wonder if this is due to multi mapping
+# this was with the rmsk gtf file
+
+# next try:
+bowtie2 -x /clusterfs/rosalind/users/ehartenian/genome_files/Ensembl/GRCm38_unmasked/Chromosomes/GRCm38_unmask -k 1000 -1 $2 -2 $3 -S $name
+
+# command to run 4SU alignment of paired end reads allowing for 100 multi mapping locations
+sbatch /clusterfs/rosalind/users/ehartenian/scripts/bowtie2_mm10_paired.sh EA_3A_k100 /clusterfs/rosalind/users/ehartenian/EAseq_pool/fastq_raw/BGSG003A_index4_S9_L003_R1_001.fastq /clusterfs/rosalind/users/ehartenian/EAseq_pool/fastq_raw/BGSG003C_index6_S10_L003_R2_001.fastq
+
+sbatch /clusterfs/rosalind/users/ehartenian/scripts/bowtie2_mm10_paired.sh EA_3C_k100 /clusterfs/rosalind/users/ehartenian/EAseq_pool/fastq_raw/BGSG003C_index6_S10_L003_R1_001.fastq /clusterfs/rosalind/users/ehartenian/EAseq_pool/fastq_raw/BGSG003A_index4_S9_L003_R2_001.fastq
+
+srun --pty -A co_rosalind -p savio -t 100:00:00 bash -i
