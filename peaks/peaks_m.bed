@@ -1,30 +1,30 @@
 # HOMER Peaks
 # Peak finding parameters:
-# tag directory = tagC
+# tag directory = tagB
 #
 # total peaks = 0
-# peak size = 200
+# peak size = 191
 # peaks found using tags on both strands
-# minimum distance between peaks = 400
-# fragment length = 200
+# minimum distance between peaks = 382
+# fragment length = 190
 # genome size = 2000000000
-# Total tags = 3534108.0
+# Total tags = 4007756.0
 # Total tags in peaks = 0.0
 # Approximate IP efficiency = 0.00%
-# tags per bp = 0.001747
-# expected tags per peak = 0.349
+# tags per bp = 0.001975
+# expected tags per peak = 0.377
 # maximum tags considered per bp = 1.0
 # effective number of tags used for normalization = 10000000.0
 # Peaks have been centered at maximum tag pile-up
 # FDR rate threshold = 0.001000000
-# FDR effective poisson threshold = 4.037718e-09
+# FDR effective poisson threshold = 7.268239e-09
 # FDR tag threshold = 8.0
-# number of putative peaks = 171
+# number of putative peaks = 319
 #
 # input tag directory = tagA
 # Fold over input required = 4.00
 # Poisson p-value over input required = 1.00e-04
-# Putative peaks filtered by input = 171
+# Putative peaks filtered by input = 319
 #
 # size of region used for local filtering = 10000
 # Fold over local region required = 4.00
@@ -34,7 +34,7 @@
 # Maximum fold under expected unique positions for tags = 2.00
 # Putative peaks filtered for being too clonal = 0
 #
-# cmd = findPeaks tagC -style factor -o auto -i tagA
+# cmd = findPeaks tagB -style factor -o auto -i tagA
 #
 # Column Headers:
 #PeakID	chr	start	end	strand	Normalized Tag Count	focus ratio	findPeaks Score	Total Tags (normalized to Control Experiment)	Control Tags	Fold Change vs Control	p-value vs Control	Fold Change vs Local	p-value vs Local	Clonal Fold Change
